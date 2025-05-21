@@ -4,8 +4,7 @@ import (
 	"fmt"
 	"net/http"
 	"os"
-	"github.com/bmasaiti/go-projects/my-vault/handlers"
-	
+	"github.com/bmasaiti/go-projects/my-vault/internal/handlers"
 )
 
 // Create a HTTP server that allows you to create, delete, read and list “secrets”.
