@@ -12,12 +12,6 @@ import (
 )
 
 
-
-
-//var mu sync.Mutex
-//var db = make(map[string]Secret)
-
-//var db domain.SecretsRepository
 var db = storage.NewInMemorySecretRepo()
 
 type CreateSecretRequest struct {
@@ -91,10 +85,7 @@ func HandlePostSecret(w http.ResponseWriter, r *http.Request) {
 	// build new secretObject
 	temp := NewCreateSecret(secretRequestObject)
 	err = db.PutNewSecret(temp)
-	//write the secret object to memory
-	// mu.Lock()
-	// db[temp.Id] = temp
-	// mu.Unlock()
+
 	if err != nil {
 		
 		err := errors.New("unexpected internal error")
@@ -122,10 +113,7 @@ func HandlePostSecret(w http.ResponseWriter, r *http.Request) {
 func HandleGetSecretById(w http.ResponseWriter, r *http.Request) {
 	//curl  -X POST -H "Content-Type: application/json" http://localhost:9000/secrets/234
 	secretID := r.PathValue("secret_id")
-	//mu.Lock()
 	
-	//secretEntry, ok := db[secretID]
-
 	secretEntry,err := db.GetScretsById(secretID)
 	
 	if err!=nil {
@@ -157,17 +145,7 @@ func HandleDeleteSecretById(w http.ResponseWriter, r *http.Request) {
 }
 
 func HandleListSecrets(w http.ResponseWriter, r *http.Request) {
-	// var secrets []Secret
-	// mu.Lock()
-	// if len(db) == 0 {
-	// 	http.Error(w, "No secrets found in the secrets store", http.StatusNotFound)
-	// 	return
-	// }
-	
-	// for _, v := range db {
-	// 	secrets = append(secrets, v)
-	// }
-	// mu.Unlock()
+
 	secrets, err := db.ListAllSecrets()
 	if err!=nil{
 		http.Error(w, "No secrets found in the secrets store", http.StatusNotFound)
