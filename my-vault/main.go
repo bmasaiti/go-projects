@@ -4,7 +4,7 @@ import (
 	"fmt"
 	"net/http"
 	"os"
-	"my-vault/handlers"
+	"github.com/bmasaiti/go-projects/my-vault/handlers"
 	
 )
 

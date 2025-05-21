@@ -1,4 +1,4 @@
-module example.com/hello
+module github.com/bmasaiti/go-projects
 
 go 1.24.1
 

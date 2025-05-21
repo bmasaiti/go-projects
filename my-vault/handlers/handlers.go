@@ -2,163 +2,164 @@ package handlers
 
 import (
 	"encoding/json"
+	"errors"
 	"fmt"
 	"net/http"
-	"github.com/google/uuid"
 	"sync"
+
+	"github.com/google/uuid"
 )
 
 type Secret struct {
-	Id    string 
-	Name  string  
-	KVMap map[string]string 
-	
+	Id    string
+	Name  string
+	KVMap map[string]string
 }
+
 var mu sync.Mutex
 var db = make(map[string]Secret)
 
-
-type CreateSecretRequest  struct {
-	Name  string    `json:"name"`
+type CreateSecretRequest struct {
+	Name  string            `json:"name"`
 	KVMap map[string]string `json:"kv_map"`
-	
 }
 
-type CreateSecretResponse  struct {
+type CreateSecretResponse struct {
 	Message string `json:"message"`
-	Id string `json:"id"`
-	Name  string    `json:"name"`
-	
-	
+	Id      string `json:"id"`
+	Name    string `json:"name"`
 }
 type GetSecretResponse struct {
-	Message string `json:"message"`
-	Id    string  `json:"id"`
-	Name  string    `json:"name"`
-	KVMap map[string]string `json:"kv_map"`
-
+	Message string            `json:"message"`
+	Id      string            `json:"id"`
+	Name    string            `json:"name"`
+	KVMap   map[string]string `json:"kv_map"`
 }
 
-func GenerateUUID() string{
+type ListSecretsResponse struct {
+	Message string `json:"message"`
+	Secrets []Secret `json:"Secrets"`
+
+}
+func GenerateUUID() string {
 	newUUID, err := uuid.NewV7()
 	if err != nil {
 		fmt.Println("Error generating UUID:", err)
-		panic(err)
+		return err.Error()
 	}
-	return  newUUID.String()
+	return newUUID.String()
 }
 
 func NewSecretResponseObject(s Secret) GetSecretResponse {
 	return GetSecretResponse{
 		Message: "Retrieved secret object",
-		Id : s.Id,
-		Name: s.Name,
+		Id:      s.Id,
+		Name:    s.Name,
+		KVMap:   s.KVMap,
+	}
+}
+
+func NewCreateSecret(s CreateSecretRequest) Secret {
+	return Secret{
+		Id:    GenerateUUID(),
+		Name:  s.Name,
 		KVMap: s.KVMap,
 	}
 }
 
-// func NewCreateSecret(s CreateSecretRequest ) Secret {
-// 	return Secret{
-// 		Id: GenerateUUID(),
-// 		Name: s.Name,
-// 		KVMap: s.KVMap,
+func BuildListSecretsResponse(s []Secret ) ListSecretsResponse{
+	return ListSecretsResponse{
+		Message: "Secrets fetched successfully",
+		Secrets: s,
+	}
+}
 
-// 	}
-// }
 
 func HandlePostSecret(w http.ResponseWriter, r *http.Request) {
 
-	
 	var secret Secret
 	var secretRequestObject CreateSecretRequest
 
 	err := json.NewDecoder(r.Body).Decode(&secretRequestObject)
-	
+	defer r.Body.Close()
+
 	if err != nil {
 		http.Error(w, err.Error(), http.StatusBadRequest)
 		return
 	}
 
-	secret.Id = GenerateUUID()
-	secret.Name = secretRequestObject.Name
-	secret.KVMap = secretRequestObject.KVMap
-
-
+	temp := NewCreateSecret(secretRequestObject)
 	mu.Lock()
-	//db[secret.Id] =  NewCreateSecret(secretRequestObject)
-	db[secret.Id] = secret
+	db[temp.Id] = temp
 	mu.Unlock()
-	defer r.Body.Close()
-
-	 res:= CreateSecretResponse{
-			Id: secret.Id,
-			Name: secret.Name,
-			Message: fmt.Sprintf("Successfully created secret with secretId: %s and name: %s", secret.Id, secret.Name),
-	 }
 	
-	encoder := json.NewEncoder(w)
-	encoded_response := encoder.Encode(res )
-	data, err := json.Marshal(encoded_response)
-	if err!= nil {
-		fmt.Errorf("%s", err.Error())
+	res := CreateSecretResponse{
+		Id:      temp.Id,
+		Name:    temp.Name,
+		Message: fmt.Sprintf("Successfully created secret with secretId: %s and name: %s", temp.Id, temp.Name),
 	}
-	
+
 	w.Header().Set("Content-Type", "application/json")
-	w.Write([]byte(data))
-	fmt.Println("Secret saved----------------------------------------- %s", secret)
+	encoder := json.NewEncoder(w)
+	err = encoder.Encode(res)
+
+	if err != nil {
+		
+		err := errors.New("unexpected internal error")
+		http.Error(w, err.Error(), http.StatusInternalServerError)
+		return
+	}
+
+	fmt.Printf("Secret saved----------------------------------------- %s", secret)
 }
 
 func HandleGetSecretById(w http.ResponseWriter, r *http.Request) {
 	//curl  -X POST -H "Content-Type: application/json" http://localhost:9000/secrets/234
-	secret_id := r.PathValue("secret_id")
-
-	// if secret_id != nil {
-	// 	fmt.Errorf(err.Error())
-	// 	fmt.Println("Failed to convert string to integer")
-	// 	return
-	// }
-	secret_entry := db[secret_id]
-	encoder := json.NewEncoder(w)
-
-	getSecretResponse := NewSecretResponseObject(secret_entry)
+	secretID := r.PathValue("secret_id")
+	mu.Lock()
+	secretEntry, ok := db[secretID]
+	mu.Unlock()
 	
-	encoded_response := encoder.Encode(getSecretResponse )
-	data, err := json.Marshal(encoded_response)
-	if err!= nil {
-		fmt.Errorf("%s", err.Error())
+	if !ok {
+		http.Error(w, fmt.Sprintf("Secret with ID %s not found", secretID), http.StatusNotFound)
+		return
 	}
-	
 	w.Header().Set("Content-Type", "application/json")
-	w.Write([]byte(data))
-
-	fmt.Printf("Retrieved secret saved----------------------------------------- %s", encoded_response)
+	getSecretResponse := NewSecretResponseObject(secretEntry)
+	json.NewEncoder(w).Encode(getSecretResponse)
+	fmt.Printf("Retrieved secret----------------------------------------- %s", getSecretResponse)
 }
 
 func HandleDeleteSecretById(w http.ResponseWriter, r *http.Request) {
 	//curl  -X POST -H "Content-Type: application/json" http://localhost:9000/secrets/234
 	secret_id := r.PathValue("secret_id")
-	// if err != nil {
-	// 	fmt.Println("Failed to convert string to integer")
-	// 	return
-	// }
-	mu.Lock()
-	delete(db, secret_id)
-	mu.Unlock()
+	if _, exists := db[secret_id]; exists {
+		mu.Lock()
+		delete(db, secret_id)
+		mu.Unlock()
+		fmt.Println("Deleted secret with id -----------------------------------------", secret_id)
+		fmt.Fprintf(w, "Secret with ID %s deleted successfully", secret_id)
+	} else {
+		http.Error(w, fmt.Sprintf("Secret with ID %s not found", secret_id), http.StatusNotFound)
+		return
+	}
 
-	fmt.Println("Deleted secret with id -----------------------------------------", secret_id)
 }
 
 func HandleListSecrets(w http.ResponseWriter, r *http.Request) {
 	var secrets []Secret
+	mu.Lock()
+	if len(db) == 0 {
+		http.Error(w, "No secrets found in the secrets store", http.StatusNotFound)
+		return
+	}
+	
 	for _, v := range db {
 		secrets = append(secrets, v)
 	}
-	data, err := json.Marshal(secrets)
-	if err!= nil {
-		fmt.Errorf(err.Error())
-	}
+	mu.Unlock()
+	response := BuildListSecretsResponse(secrets)
 	w.Header().Set("Content-Type", "application/json")
-	w.Write([]byte(data))
+	w.WriteHeader(http.StatusOK)
+	json.NewEncoder(w).Encode(response)
 }
-
-
