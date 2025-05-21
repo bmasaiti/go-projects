@@ -1,0 +1,9 @@
+{
+	"Id":34,
+	"name": "server-secret",
+	"kv_map": {
+        "username": "Tamuka",
+        "password": "pass123"
+    }
+	
+  }
