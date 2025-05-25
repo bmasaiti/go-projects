@@ -11,7 +11,6 @@ import (
 	"github.com/google/uuid"
 )
 
-
 var db = storage.NewInMemorySecretRepo()
 
 type CreateSecretRequest struct {
@@ -32,10 +31,10 @@ type GetSecretResponse struct {
 }
 
 type ListSecretsResponse struct {
-	Message string `json:"message"`
+	Message string          `json:"message"`
 	Secrets []domain.Secret `json:"Secrets"`
-
 }
+
 func GenerateUUID() string {
 	newUUID, err := uuid.NewV7()
 	if err != nil {
@@ -62,13 +61,12 @@ func NewCreateSecret(s CreateSecretRequest) domain.Secret {
 	}
 }
 
-func BuildListSecretsResponse(s []domain.Secret ) ListSecretsResponse{
+func BuildListSecretsResponse(s []domain.Secret) ListSecretsResponse {
 	return ListSecretsResponse{
 		Message: "Secrets fetched successfully",
 		Secrets: s,
 	}
 }
-
 
 func HandlePostSecret(w http.ResponseWriter, r *http.Request) {
 
@@ -87,7 +85,7 @@ func HandlePostSecret(w http.ResponseWriter, r *http.Request) {
 	err = db.PutNewSecret(temp)
 
 	if err != nil {
-		
+
 		err := errors.New("unexpected internal error")
 		http.Error(w, err.Error(), http.StatusInternalServerError)
 		return
@@ -103,7 +101,7 @@ func HandlePostSecret(w http.ResponseWriter, r *http.Request) {
 	encoder := json.NewEncoder(w)
 	err = encoder.Encode(res)
 	if err != nil {
-		
+
 		err := errors.New("unexpected internal error")
 		http.Error(w, err.Error(), http.StatusInternalServerError)
 		return
@@ -113,10 +111,10 @@ func HandlePostSecret(w http.ResponseWriter, r *http.Request) {
 func HandleGetSecretById(w http.ResponseWriter, r *http.Request) {
 	//curl  -X POST -H "Content-Type: application/json" http://localhost:9000/secrets/234
 	secretID := r.PathValue("secret_id")
-	
-	secretEntry,err := db.GetScretsById(secretID)
-	
-	if err!=nil {
+
+	secretEntry, err := db.GetScretsById(secretID)
+
+	if err != nil {
 		http.Error(w, fmt.Sprintf("Secret with ID %s not found", secretID), http.StatusNotFound)
 		return
 	}
@@ -127,17 +125,16 @@ func HandleGetSecretById(w http.ResponseWriter, r *http.Request) {
 	fmt.Printf("Retrieved secret----------------------------------------- %s", getSecretResponse)
 }
 
-
 func HandleDeleteSecretById(w http.ResponseWriter, r *http.Request) {
 	//curl  -X POST -H "Content-Type: application/json" http://localhost:9000/secrets/234
 	secretId := r.PathValue("secret_id")
-	secret,_ := db.DeleteSecretByID(secretId)
+	secret, _ := db.DeleteSecretByID(secretId)
 
 	if secret != "" {
 		fmt.Println("Deleted secret with id -----------------------------------------", secret)
 		fmt.Fprintf(w, "Secret with ID %s deleted successfully", secret)
 
-	}else {
+	} else {
 		http.Error(w, fmt.Sprintf("Secret with ID %s not found", secret), http.StatusNotFound)
 		return
 	}
@@ -147,7 +144,7 @@ func HandleDeleteSecretById(w http.ResponseWriter, r *http.Request) {
 func HandleListSecrets(w http.ResponseWriter, r *http.Request) {
 
 	secrets, err := db.ListAllSecrets()
-	if err!=nil{
+	if err != nil {
 		http.Error(w, "No secrets found in the secrets store", http.StatusNotFound)
 		return
 	}
