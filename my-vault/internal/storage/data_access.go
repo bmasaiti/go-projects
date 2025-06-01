@@ -63,7 +63,7 @@ func (repo *InMemorySecretRepo)ListAllSecrets() ([]domain.Secret,error){
 	defer repo.mu.Unlock()
 	var secrets []domain.Secret
 	if len(repo.secrets) == 0 {
-		return []domain.Secret{},ErrNotFound
+		return []domain.Secret{},nil
 	}
 	for _, v := range repo.secrets {
 		secrets = append(secrets, v)
