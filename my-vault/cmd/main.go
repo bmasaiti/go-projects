@@ -4,7 +4,9 @@ import (
 	"fmt"
 	"net/http"
 	"os"
+
 	"github.com/bmasaiti/go-projects/my-vault/internal/handlers"
+	"github.com/bmasaiti/go-projects/my-vault/internal/storage"
 )
 
 // Create a HTTP server that allows you to create, delete, read and list “secrets”.
@@ -24,12 +26,19 @@ import (
 
 //curl -d "@request_payload.json" -X POST  http://localhost:8000/secrets
 
-//TODO: Create a db object that can be swapped out for a  real db 
+//TODO: Create a db object that can be swapped out for a  real db
 //TODO: add decent logging.
 //TODO: Proper error handling.
-//TODO: encrypting secret object. 
+//TODO: encrypting secret object.
 
 func main() {
+	
+
+	
+	repo := storage.NewInMemorySecretRepo()
+    secretHandler := &handlers.SecretHandler{
+        DB: repo,
+    }
 
 	fmt.Println("Starting Secrets Server--------------------------------------")
 	router := http.NewServeMux()
@@ -38,14 +47,23 @@ func main() {
 		Handler: router,
 	}
 
-	router.HandleFunc("POST /v1/secrets", handlers.HandlePostSecret)
-	router.HandleFunc("GET /v1/secrets", handlers.HandleListSecrets)
-	router.HandleFunc("GET /v1/secrets/{secret_id}", handlers.HandleGetSecretById)
-	router.HandleFunc("DELETE /v1/secrets/{secret_id}", handlers.HandleDeleteSecretById)
-
+	router.HandleFunc("POST /v1/secrets", func(w http.ResponseWriter, r *http.Request){
+		secretHandler.HandlePostSecret(w, r)
+	})
+	router.HandleFunc("GET /v1/secrets/{secret_id}", func(w http.ResponseWriter, r *http.Request){
+		secretHandler.HandleGetSecretById(w, r)
+	})
+	router.HandleFunc("GET /v1/secrets", func(w http.ResponseWriter, r *http.Request){
+		secretHandler.HandleListSecrets(w, r)
+	})
+	router.HandleFunc("DELETE /v1/secrets/{secret_id}", func(w http.ResponseWriter, r *http.Request){
+		secretHandler.HandleDeleteSecretById(w, r)
+	})
+	
 	if err := server.ListenAndServe(); err != http.ErrServerClosed {
         fmt.Println("Failed to listen and serve:", err)
         os.Exit(1)
     }
+
 }
 

@@ -1,12 +1,14 @@
 package storage
 
 import (
+	"errors"
 	"fmt"
 	"sync"
 
 	"github.com/bmasaiti/go-projects/my-vault/internal/domain"
 )
 
+var ErrNotFound = errors.New("not found")
 //template of my localdb ... How it should be according to me
 type InMemorySecretRepo struct {
 	mu sync.RWMutex
@@ -35,7 +37,7 @@ func (repo *InMemorySecretRepo) GetScretsById(secretId string) (domain.Secret,er
 	defer repo.mu.Unlock()
 	secretEntry, ok := repo.secrets[secretId]
 	if !ok{
-		return domain.Secret{}, fmt.Errorf("secret with ID '%s' not found", secretId)
+		return domain.Secret{}, ErrNotFound
 	}
 	//should this be a pointer instead .... not needed , since this is js a read , we can do with a copy
 	return secretEntry, nil
@@ -45,23 +47,24 @@ func (repo *InMemorySecretRepo) GetScretsById(secretId string) (domain.Secret,er
 func (repo *InMemorySecretRepo)DeleteSecretByID(secretId string) (string,error){
 	repo.mu.Lock()
 	defer repo.mu.Unlock()
+	
 	if _, exists := repo.secrets[secretId]; exists {
 		delete(repo.secrets, secretId)
 		return secretId,nil
 }
-	return "", fmt.Errorf("secret with ID '%s' not found", secretId)
+	return "", ErrNotFound
 }
 
 func (repo *InMemorySecretRepo)ListAllSecrets() ([]domain.Secret,error){
+	if repo == nil {
+		return nil, fmt.Errorf("repository is nil")
+	}
 	repo.mu.Lock()
 	defer repo.mu.Unlock()
 	var secrets []domain.Secret
 	if len(repo.secrets) == 0 {
-		return []domain.Secret{},fmt.Errorf("no secrets found in the secrets store")
-	}else{
-		
+		return []domain.Secret{},ErrNotFound
 	}
-
 	for _, v := range repo.secrets {
 		secrets = append(secrets, v)
 	}

@@ -39,6 +39,20 @@ const responseJSON = `{
   "name": "server-secret"
 }`
 
+type mockSecretRepo struct{}
+
+func (m *mockSecretRepo) ListAllSecrets() ([]domain.Secret, error) {
+	return []domain.Secret{
+		{
+			Id:   "019705dc-8e40-7ead-b13d-bd41c3f7f476",
+			Name: "server-secret",
+			KVMap: map[string]string{
+				"username": "Tamuka",
+				"password": "pass123",
+			},
+		},
+	}, nil
+}
 // secrets := map[string]Secret{
 // 		"01970123-643a-7d9c-abbf-684a3abe129c": {
 // 			Id:   "01970123-643a-7d9c-abbf-684a3abe129c",
@@ -98,6 +112,9 @@ const responseJSON = `{
 // }
 
 func TestHandleListAllSecrets(t *testing.T) {
+	handler := &SecretHandler{
+		DB: &mockSecretRepo{},
+	}
 	t.Run("Returns a secret object", func(t *testing.T) {
 		request := httptest.NewRequest(http.MethodGet, "/v1/secrets/", nil)
 		response := httptest.NewRecorder()
