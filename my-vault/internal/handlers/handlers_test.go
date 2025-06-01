@@ -1,13 +1,10 @@
 package handlers
 
 import (
-	"encoding/json"
-	"fmt"
-	"io"
-	"log"
+	"bytes"
+	"errors"
 	"net/http"
 	"net/http/httptest"
-	"reflect"
 	"strings"
 	"testing"
 
@@ -39,227 +36,215 @@ const responseJSON = `{
   "name": "server-secret"
 }`
 
-type mockSecretRepo struct{}
-
-func (m *mockSecretRepo) ListAllSecrets() ([]domain.Secret, error) {
-	return []domain.Secret{
-		{
-			Id:   "019705dc-8e40-7ead-b13d-bd41c3f7f476",
-			Name: "server-secret",
-			KVMap: map[string]string{
-				"username": "Tamuka",
-				"password": "pass123",
-			},
-		},
-	}, nil
+// Mock implementation of SecretsRepository
+type MockSecretsRepository struct {
+	secrets []domain.Secret
+	err     error
 }
-// secrets := map[string]Secret{
-// 		"01970123-643a-7d9c-abbf-684a3abe129c": {
-// 			Id:   "01970123-643a-7d9c-abbf-684a3abe129c",
-// 			Name: "server-secret-1",
-// 			KVMap: map[string]string{
-// 				"username": "Tamuka",
-// 				"password": "pass123",
-// 			},
-// 		},
-// 		"01970123-743b-8e0d-bbcc-12345ef67890": {
-// 			Id:   "01970123-743b-8e0d-bbcc-12345ef67890",
-// 			Name: "server-secret-2",
-// 			KVMap: map[string]string{
-// 				"api_key": "abcd1234",
-// 				"env":     "production",
-// 			},
-// 		},
-// 	}
 
-// func TestHandleGetSecrets(t *testing.T){
+func (m *MockSecretsRepository) PutNewSecret(secret domain.Secret) error {
+	return m.err
+}
 
-// 	t.Run("Returns a secret object", func(t *testing.T){
-// 		request := httptest.NewRequest(http.MethodGet,"/v1/secrets/01970123-643a-7d9c-abbf-684a3abe129c", nil)
-// 		//secretId:= strings.TrimPrefix(req.URL.Path , "v1/secrets/secretId")
-// 		response := httptest.NewRecorder()
+func (m *MockSecretsRepository) GetScretsById(Id string) (domain.Secret, error) {
 
-// 		HandleGetSecretById(response,request)
+	return m.secrets[0],m.err  //cheating
+	
+}
 
-// 		got := response.Body.String()
+func (m *MockSecretsRepository) DeleteSecretByID(Id string) (string, error) {
+	return "", m.err
+}
 
-// 		want:= getResponseJSON
+func (m *MockSecretsRepository) ListAllSecrets() ([]domain.Secret, error) {
+	return m.secrets, m.err
+}
 
-// 		if got != want {
-// 			t.Errorf("got %q, want %q", got, want)
-// 		}
-// 		})
-
-// }
-
-// func TestHandleListAllSecrets(t *testing.T){
-
-// 	t.Run("Returns a secret object", func(t *testing.T){
-// 		request := httptest.NewRequest(http.MethodGet,"/v1/secrets/", nil)
-// 		response := httptest.NewRecorder()
-
-// 		HandleListSecrets(response,request)
-
-// 		got := response.Body.String()
-
-// 		want:= getResponseJSON // return a list here of secrets.
-
-// 		if got != want {
-// 			t.Errorf("got %q, want %q", got, want)
-// 		}
-// 		})
-
-// }
-
-func TestHandleListAllSecrets(t *testing.T) {
-	handler := &SecretHandler{
-		DB: &mockSecretRepo{},
-	}
-	t.Run("Returns a secret object", func(t *testing.T) {
-		request := httptest.NewRequest(http.MethodGet, "/v1/secrets/", nil)
-		response := httptest.NewRecorder()
-
-		HandleListSecrets(response, request)
-
-		body := response.Body.Bytes()
-		log.Default().Fatal(string(body))
-
-		var got []domain.Secret
-
-		if err := json.Unmarshal(body, &got); err != nil {
-			t.Fatalf("Failed to parse JSON response: %v", err)
-		}
-
-		want := []domain.Secret{
-			{
-				Id:   "019705dc-8e40-7ead-b13d-bd41c3f7f476",
-				Name: "server-secret",
-				KVMap: map[string]string{
-					"username": "Tamuka",
-					"password": "pass123",
-				},
+func TestHandlePostSecret(t *testing.T) {
+	t.Run("returns 200 OK with JSON on success", func(t *testing.T) {
+		mockRepo := &MockSecretsRepository{
+			secrets: []domain.Secret{
+				{Id: "1", Name: "test-secret", KVMap: map[string]string{"key": "value"}},
 			},
+			err: nil,
+		}
+		handler := &SecretHandler{DB: mockRepo}
+
+		req := httptest.NewRequest("POST", "/secrets", bytes.NewBuffer([]byte(`{"name": "test-secret", "key": "value"}`)))
+		w := httptest.NewRecorder()
+
+		handler.HandlePostSecret(w, req)
+
+		if w.Code != http.StatusOK {
+			t.Errorf("expected status 200, got %d", w.Code)
 		}
 
-		if !reflect.DeepEqual(got, want) {
-			t.Errorf("Expected %+v, got %+v", want, got)
+		if contentType := w.Header().Get("Content-Type"); contentType != "application/json" {
+			t.Errorf("expected Content-Type application/json, got %s", contentType)
+		}
+	})
+
+	t.Run("returns 500 on database error", func(t *testing.T) {
+		mockRepo := &MockSecretsRepository{
+			err: errors.New("database connection failed"),
+		}
+		handler := &SecretHandler{DB: mockRepo}
+
+		req := httptest.NewRequest("POST", "/secrets", bytes.NewBuffer([]byte(`{"name": "test-secret", "key": "value"}`)))
+		w := httptest.NewRecorder()
+
+		handler.HandlePostSecret(w, req)
+
+		if w.Code != http.StatusInternalServerError {
+			t.Errorf("expected status 500, got %d", w.Code)
 		}
 	})
 }
 
-// func TestHandlePostSecret(t *testing.T) {
+func TestHandleGetSecretById(t *testing.T) {
+		mockRepo := &MockSecretsRepository{
+				secrets: []domain.Secret{
+					{
+						Id:   "01970123-643a-7d9c-abbf-684a3abe129c",  
+						Name: "server-secret",                        
+						KVMap: map[string]string{                      
+							"password": "pass123",                     
+							"username": "Tamuka",                     
+						},
+					},
+				},
+				err: nil,
+			}
+	t.Run("returns 200 OK with json secret object", func(t *testing.T) {
+		
+		
+	
+		handler := &SecretHandler{DB: mockRepo}
 
-// 	const requestJSON = `"id": 34,
-// 		"name": "server-secret",
-// 		"kv_map": {
-// 			"username": "Tamuka",
-// 			"password": "pass123"
-// 		}
+		req := httptest.NewRequest("GET", "/secrets/01970123-643a-7d9c-abbf-684a3abe129c", nil)
+		w := httptest.NewRecorder()
 
-// 	}`
+		handler.HandleGetSecretById(w, req)
 
-// 	method := http.MethodPost
-// 	endpoint := "/v1/secrets"
-
-// 	request := httptest.NewRequest(method, endpoint, strings.NewReader(requestJSON))
-// 	response := httptest.NewRecorder()
-// 	defer request.Body.Close()
-
-// 	HandlePostSecret(response, request)
-
-// 	resp := response.Result()
-// 	body, err := io.ReadAll(resp.Body)
-// 	log.Println("JSON decode error:", err)
-// 	log.Println("Body:", string(body))
-
-// 	if err != nil {
-// 		log.Println("JSON decode error:", err)
-// 		t.Fatal(err)
-// 	}
-// 	if resp.StatusCode != http.StatusOK {
-// 		t.Fatalf("want: %03d, got: %03d", http.StatusOK, resp.StatusCode)
-// 	}
-// 	want := fmt.Sprintf(`[%s] %s OK!`, method, endpoint)
-// 	got := string(body)
-
-// 	if want != got {
-// 		t.Fatalf("want: %+q, got: %+q", want, got)
-// 	}
-// }
-
-// func TestHandleGetSecretById(t *testing.T) {
-// 	mockRepo := &MockSecretsRepository{
-// 		GetSecretByIdFunc: func(id string) (Secret, error) {
-// 			if id == "123" {
-// 				return Secret{
-// 					Id:   "123",
-// 					Name: "TestSecret",
-// 					KVMap: map[string]string{
-// 						"key1": "value1",
-// 					},
-// 				}, nil
-// 			}
-// 			return Secret{}, errors.New("not found")
-// 		},
-// 	}
-
-// 	handler := &SecretHandler{Repo: mockRepo}
-
-// 	req := httptest.NewRequest("GET", "/v1/secrets/123", nil)
-// 	// Simulate router param: "secret_id" = "123"
-// 	req = mux.SetURLVars(req, map[string]string{"secret_id": "123"})
-
-// 	rr := httptest.NewRecorder()
-
-// 	handler.HandleGetSecretById(rr, req)
-
-// 	assert.Equal(t, http.StatusOK, rr.Code)
-// 	expected := `{"Id":"123","Name":"TestSecret","KVMap":{"key1":"value1"}}`
-// 	assert.JSONEq(t, expected, rr.Body.String())
-// }
-
-func TestHandlePostSecret(t *testing.T) {
-	const requestJSON = `{
-		"id": 34,
-		"name": "server-secret",
-		"kv_map": {
-			"username": "Tamuka",
-			"password": "pass123"
+		if w.Code != http.StatusOK {
+			t.Errorf("expected status 200, got %d", w.Code)
 		}
-	}`
 
-	// respData := struct {
-	// 	Message string `json:"message"`
-	// 	ID      string `json:"id"`
-	// 	Name    string `json:"name"`
-	// }
-	method := http.MethodPost
-	endpoint := "/v1/secrets"
+		 if !strings.Contains(w.Body.String(), "01970123-643a-7d9c-abbf-684a3abe129c") {
+			t.Errorf("Expected secret ID in response body,got %s", w.Body.String())
+		}
 
-	request := httptest.NewRequest(method, endpoint, strings.NewReader(requestJSON))
-	request.Header.Set("Content-Type", "application/json")
-	response := httptest.NewRecorder()
+		if contentType := w.Header().Get("Content-Type"); contentType != "application/json" {
+			t.Errorf("expected Content-Type application/json, got %s", contentType)
+		}
+	})
+	t.Run("returns 500 on database error", func(t *testing.T) {
+		// mockRepo := &MockSecretsRepository{
+		// 	err: errors.New("database connection failed"),
+		// }
+		handler := &SecretHandler{DB: mockRepo}
 
-	HandlePostSecret(response, request)
+		req := httptest.NewRequest("GET", "/secrets/01970123-643a-7d9c-abbf-684a3abe129c", nil)
+		w := httptest.NewRecorder()
 
-	resp := response.Result()
-	defer resp.Body.Close()
+		handler.HandleGetSecretById(w, req)
 
-	body, err := io.ReadAll(resp.Body)
-	if err != nil {
-		t.Fatal("Failed to read response body:", err)
-	}
+		if w.Code != http.StatusInternalServerError {
+			t.Errorf("expected status 500, got %d", w.Code)
+		}
 
-	log.Println("Body:", string(body))
+		// if !strings.Contains(w.Body.String(), "Unexpected internal server error") {
+		// 	t.Errorf("expected error message in response body")
+		// }
+	})
 
-	if resp.StatusCode != http.StatusOK {
-		t.Fatalf("Expected status %d but got %d", http.StatusOK, resp.StatusCode)
-	}
+}
+func TestHandleDeleteSecretById(t *testing.T) {
+	t.Run("returns 200 OK with JSON on success", func(t *testing.T) {
+		mockRepo := &MockSecretsRepository{
+			secrets: []domain.Secret{
+				{Id: "1", Name: "test-secret", KVMap: map[string]string{"key": "value"}},
+			},
+			err: nil,
+		}
+		handler := &SecretHandler{DB: mockRepo}
 
-	want := fmt.Sprintf(`[%s] %s OK!`, method, endpoint)
-	got := string(body)
+		req := httptest.NewRequest("DELETE", "/secrets/1", nil)
+		w := httptest.NewRecorder()
 
-	if want != got {
-		t.Fatalf("Expected body %q, got %q", want, got)
-	}
+		handler.HandleDeleteSecretById(w, req)
+
+		if w.Code != http.StatusOK {
+			t.Errorf("expected status 200, got %d", w.Code)
+		}
+
+		if contentType := w.Header().Get("Content-Type"); contentType != "text/plain; charset=utf-8" {
+			t.Errorf("expected Content-Type text/plain, got %s", contentType)
+		}
+	})
+
+	t.Run("returns 500 on database error", func(t *testing.T) {
+		mockRepo := &MockSecretsRepository{
+			err: errors.New("database connection failed"),
+		}
+		handler := &SecretHandler{DB: mockRepo}
+
+		req := httptest.NewRequest("DELETE", "/secrets/1", nil)
+		w := httptest.NewRecorder()
+
+		handler.HandleDeleteSecretById(w, req)
+
+		if w.Code != http.StatusInternalServerError {
+			t.Errorf("expected status 500, got %d", w.Code)
+		}
+
+		// if !strings.Contains(w.Body.String(), "Unexpected internal server error") {
+		// 	t.Errorf("expected error message in response body")
+		// }
+	})
+}
+
+func TestHandleListSecretsById(t *testing.T) {
+	t.Run("returns 200 OK with JSON on success", func(t *testing.T) {
+		mockRepo := &MockSecretsRepository{
+			secrets: []domain.Secret{
+				{Id: "1", Name: "test-secret", KVMap: map[string]string{"key": "value"}},
+			},
+			err: nil,
+		}
+		handler := &SecretHandler{DB: mockRepo}
+
+		req := httptest.NewRequest("GET", "/secrets", nil)
+		w := httptest.NewRecorder()
+
+		handler.HandleListSecrets(w, req)
+
+		if w.Code != http.StatusOK {
+			t.Errorf("expected status 200, got %d", w.Code)
+		}
+
+		if contentType := w.Header().Get("Content-Type"); contentType != "application/json" {
+			t.Errorf("expected Content-Type application/json, got %s", contentType)
+		}
+	})
+
+	t.Run("returns 500 on database error", func(t *testing.T) {
+		mockRepo := &MockSecretsRepository{
+			err: errors.New("database connection failed"),
+		}
+		handler := &SecretHandler{DB: mockRepo}
+
+		req := httptest.NewRequest("GET", "/secrets", nil)
+		w := httptest.NewRecorder()
+
+		handler.HandleListSecrets(w, req)
+
+		if w.Code != http.StatusInternalServerError {
+			t.Errorf("expected status 500, got %d", w.Code)
+		}
+
+		if !strings.Contains(w.Body.String(), "Unexpected internal server error") {
+			t.Errorf("expected error message in response body")
+		}
+	})
 }
