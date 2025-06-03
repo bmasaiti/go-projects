@@ -26,6 +26,10 @@ func NewInMemorySecretRepo() *InMemorySecretRepo {
 // so we construct the secret object in the handler and we pass it to this function to actually add to our repository
 // returns nothing if all goes well, and also now I have a localised mutex instead of global one (funny if I do repo.mu.Unlock its giving an error)
 func (repo *InMemorySecretRepo) PutNewSecret(secret domain.Secret) error{
+	if repo == nil {
+		return errors.New("repository is unavailable")
+	}
+
 	repo.mu.Lock()
 	defer repo.mu.Unlock()
 	repo.secrets[secret.Id]=secret
