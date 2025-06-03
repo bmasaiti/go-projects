@@ -47,7 +47,6 @@ func main() {
 		Handler: router,
 	}
 
-
 	router.HandleFunc("POST /v1/secrets", func(w http.ResponseWriter, r *http.Request){
 		secretHandler.HandlePostSecret(w, r)
 	})
