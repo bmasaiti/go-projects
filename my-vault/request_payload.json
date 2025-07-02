@@ -4,6 +4,12 @@
 	"kv_map": {
         "username": "Tamuka",
         "password": "pass123"
+    },
+      "Id":20,
+        "name": "bud-secret",
+        "kv_map": {
+        "username": "Budwell",
+        "password": "pass123"
     }
 	
   }
