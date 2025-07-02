@@ -48,7 +48,10 @@ func (m *MockSecretsRepository) PutNewSecret(secret domain.Secret) error {
 
 func (m *MockSecretsRepository) GetScretsById(Id string) (domain.Secret, error) {
 
-	return m.secrets[0],m.err  //cheating
+	if m.err != nil {
+		return domain.Secret{}, m.err
+	}
+	return m.secrets[0], nil
 	
 }
 
