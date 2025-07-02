@@ -4,18 +4,21 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
-	"log"
+	"log/slog"
 	"net/http"
+	"os"
 
 	"github.com/bmasaiti/go-projects/my-vault/internal/domain"
 	"github.com/bmasaiti/go-projects/my-vault/internal/storage"
 	"github.com/google/uuid"
 )
 
-//var db = storage.NewInMemorySecretRepo()
-//return domain.Secret{}, fmt.Errorf("secret with ID '%s' not found", secretId)
-//fmt.Errorf("no secrets found in the secrets store")
-//var ErrNotFound = errors.New("not found")
+var logger = slog.New(slog.NewJSONHandler(os.Stdout, nil))
+
+// var db = storage.NewInMemorySecretRepo()
+// return domain.Secret{}, fmt.Errorf("secret with ID '%s' not found", secretId)
+// fmt.Errorf("no secrets found in the secrets store")
+// var ErrNotFound = errors.New("not found")
 type SecretsRepository interface {
 	PutNewSecret(secret domain.Secret) error
 	GetScretsById(Id string) (domain.Secret, error)
@@ -50,7 +53,7 @@ type ListSecretsResponse struct {
 	Secrets []domain.Secret `json:"Secrets"`
 }
 
-func GenerateUUID() (string,error) {
+func GenerateUUID() (string, error) {
 	newUUID, err := uuid.NewV7()
 	if err != nil {
 		return "", err
@@ -68,17 +71,17 @@ func NewSecretResponseObject(s domain.Secret) GetSecretResponse {
 }
 
 func NewCreateSecret(s CreateSecretRequest) (domain.Secret, error) {
-	uuid ,err := GenerateUUID()
-	if err!=nil {
-		return domain.Secret{},err
-	
+	uuid, err := GenerateUUID()
+	if err != nil {
+		return domain.Secret{}, err
+
 	}
 
 	return domain.Secret{
 		Id:    uuid,
 		Name:  s.Name,
 		KVMap: s.KVMap,
-	},nil
+	}, nil
 }
 
 func BuildListSecretsResponse(s []domain.Secret) ListSecretsResponse {
@@ -98,15 +101,15 @@ func (h *SecretHandler) HandlePostSecret(w http.ResponseWriter, r *http.Request)
 
 	if err != nil {
 		http.Error(w, err.Error(), http.StatusBadRequest)
-		log.Printf("ERROR: Unexpected behaviour: %v", err)
+		logger.Error("Unexpected internal error", "error", err)
 		return
 	}
 	// build new secretObject
-	temp,err := NewCreateSecret(secretRequestObject)
-	if err!=nil {
+	temp, err := NewCreateSecret(secretRequestObject)
+	if err != nil {
 		secretErr := errors.New("unexpected internal error")
 		http.Error(w, secretErr.Error(), http.StatusInternalServerError)
-		log.Printf("ERROR: Unexpted internal error: %v", err)
+		logger.Error("Unexpected internal error", "error", err)
 		return
 	}
 	//err = db.PutNewSecret(temp)
@@ -115,7 +118,7 @@ func (h *SecretHandler) HandlePostSecret(w http.ResponseWriter, r *http.Request)
 	if err != nil {
 		err := errors.New("unexpected internal error")
 		http.Error(w, err.Error(), http.StatusInternalServerError)
-		log.Printf("ERROR: Unexpted internal error: %v", err)
+		logger.Error("Unexpected internal error", "error", err)
 		return
 	}
 
@@ -124,8 +127,8 @@ func (h *SecretHandler) HandlePostSecret(w http.ResponseWriter, r *http.Request)
 		Name:    temp.Name,
 		Message: fmt.Sprintf("Successfully created secret with secretId: %s and name: %s", temp.Id, temp.Name),
 	}
-	
-	log.Printf("INFO: Secret saved----------------------------------------- %s", temp.Id)
+	//logger.Info("Successfully saved secret", "secret_id", temp.Id)
+	logger.Info("Successfully saved secret", "secret_id", temp.Id, "name", temp.Name)
 	w.Header().Set("Content-Type", "application/json")
 	encoder := json.NewEncoder(w)
 	err = encoder.Encode(res)
@@ -133,7 +136,7 @@ func (h *SecretHandler) HandlePostSecret(w http.ResponseWriter, r *http.Request)
 
 		userErr := errors.New("unexpected internal error")
 		http.Error(w, userErr.Error(), http.StatusInternalServerError)
-		log.Printf("ERROR: Unexpted internal error: %v", err)
+		logger.Error("Unexpected internal error", "error", err)
 		return
 	}
 }
@@ -142,15 +145,15 @@ func (h *SecretHandler) HandleGetSecretById(w http.ResponseWriter, r *http.Reque
 	//curl  -X POST -H "Content-Type: application/json" http://localhost:9000/secrets/234
 	secretID := r.PathValue("secret_id")
 	secretEntry, err := h.DB.GetScretsById(secretID)
-	log.Printf("secret from Db %v", secretEntry)
+	logger.Info("secret from Db", "secret", secretEntry)
 	if err != nil {
 		if errors.Is(err, storage.ErrNotFound) {
 			http.Error(w, fmt.Sprintf("Secret with ID %s not found", secretID), http.StatusNotFound)
 			return
 		}
-		log.Printf("ERROR: Unexpected internal error: %v", err)
-		http.Error(w, "Unexpected internal error", http.StatusInternalServerError)	
-	return
+		logger.Error("Unexpected internal error", "error", err)
+		http.Error(w, "Unexpected internal error", http.StatusInternalServerError)
+		return
 	}
 
 	w.Header().Set("Content-Type", "application/json")
@@ -166,25 +169,25 @@ func (h *SecretHandler) HandleDeleteSecretById(w http.ResponseWriter, r *http.Re
 		http.Error(w, "empty secret ID", http.StatusBadRequest)
 	}
 	secret, err := h.DB.DeleteSecretByID(secretId)
-	if err==storage.ErrNotFound{
+	if err == storage.ErrNotFound {
 		http.Error(w, fmt.Sprintf("Secret with ID %s not found", secret), http.StatusNotFound)
 		return
 	}
 	if err != nil {
-		http.Error(w,"Unexpected internal error", http.StatusInternalServerError)
-		log.Printf("Failed to delete secret: %v", err)
+		http.Error(w, "Unexpected internal error", http.StatusInternalServerError)
+		logger.Error("Failed to delete secret", "error", err, "secret_id", secretId)
 		return
 	}
-	log.Println("Deleted secret with id -----------------------------------------", secret)
+	logger.Info("Successfully deleted secret", "secret_id", secretId)
 	fmt.Fprintf(w, "Secret with ID %s deleted successfully", secret)
 }
 
 func (h *SecretHandler) HandleListSecrets(w http.ResponseWriter, r *http.Request) {
 
 	secrets, err := h.DB.ListAllSecrets()
-	if err != nil{
+	if err != nil {
 		http.Error(w, "Unexpected internal server error", http.StatusInternalServerError)
-		log.Printf("ERROR: Unexpted internal error: %v", err)
+		logger.Error("Unexpected internal error", "error", err)
 		return
 	}
 	response := BuildListSecretsResponse(secrets)
@@ -196,7 +199,7 @@ func (h *SecretHandler) HandleListSecrets(w http.ResponseWriter, r *http.Request
 
 		err := errors.New("unexpected internal error")
 		http.Error(w, err.Error(), http.StatusInternalServerError)
-		log.Printf("ERROR: Unexpted internal error: %v", err)
+		logger.Error("Unexpected internal error", "error", err)
 		return
 	}
 }
