@@ -124,18 +124,10 @@ func main() {
 		Handler: router,
 	}
 
-	router.HandleFunc("POST /v1/secrets", func(w http.ResponseWriter, r *http.Request){
-		secretHandler.HandlePostSecret(w, r)
-	})
-	router.HandleFunc("GET /v1/secrets/{secret_id}", func(w http.ResponseWriter, r *http.Request){
-		secretHandler.HandleGetSecretById(w, r)
-	})
-	router.HandleFunc("GET /v1/secrets", func(w http.ResponseWriter, r *http.Request){
-		secretHandler.HandleListSecrets(w, r)
-	})
-	router.HandleFunc("DELETE /v1/secrets/{secret_id}", func(w http.ResponseWriter, r *http.Request){
-		secretHandler.HandleDeleteSecretById(w, r)
-	})
+	router.HandleFunc("POST /v1/secrets", http.HandlerFunc(secretHandler.HandlePostSecret))
+	router.HandleFunc("GET /v1/secrets/{secret_id}", http.HandlerFunc(secretHandler.HandleGetSecretById(w, r))
+	router.HandleFunc("GET /v1/secrets", http.HandlerFunc(secretHandler.HandleListSecrets(w, r))
+	router.HandleFunc("DELETE /v1/secrets/{secret_id}", http.HandlerFunc(secretHandler.HandleDeleteSecretById(w, r))
 	
 	if err := server.ListenAndServe(); err != http.ErrServerClosed {
         fmt.Println("Failed to listen and serve:", err)
