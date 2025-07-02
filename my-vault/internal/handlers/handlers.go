@@ -162,6 +162,9 @@ func (h *SecretHandler) HandleGetSecretById(w http.ResponseWriter, r *http.Reque
 func (h *SecretHandler) HandleDeleteSecretById(w http.ResponseWriter, r *http.Request) {
 	//curl  -X POST -H "Content-Type: application/json" http://localhost:9000/secrets/234
 	secretId := r.PathValue("secret_id")
+	if len(secretId) == 0 {
+		http.Error(w, "empty secret ID", http.StatusBadRequest)
+	}
 	secret, err := h.DB.DeleteSecretByID(secretId)
 	if err==storage.ErrNotFound{
 		http.Error(w, fmt.Sprintf("Secret with ID %s not found", secret), http.StatusNotFound)
