@@ -118,8 +118,8 @@ func (h *SecretHandler) HandlePostSecret(w http.ResponseWriter, r *http.Request)
 	err = h.DB.PutNewSecret(temp)
 
 	if err != nil {
-		err := errors.New("unexpected internal error")
-		http.Error(w, err.Error(), http.StatusInternalServerError)
+		newErr := errors.New("unexpected internal error")
+		http.Error(w, newErr.Error(), http.StatusInternalServerError)
 		logger.Error("Unexpected internal error", "error", err)
 		return
 	}
