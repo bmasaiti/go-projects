@@ -34,13 +34,12 @@ import (
 //TODO: Proper error handling.
 //TODO: encrypting secret object.
 
-
 func getEnv(key, defaultValue string) string {
 	return cmp.Or(os.Getenv(key), defaultValue)
 }
 
 func main() {
-	
+
 	connStr := fmt.Sprintf("host=%s port=%s user=%s password=%s dbname=%s sslmode=%s",
 		getEnv("DB_HOST", "localhost"),
 		getEnv("DB_PORT", "5432"),
@@ -56,13 +55,11 @@ func main() {
 	defer db.Close()
 	log.Println("Successfully connected to the database!")
 
-
-	postgres:= storage.NewPostgresSecretRepo(db)
+	postgres := storage.NewPostgresSecretRepo(db)
 
 	secretHandler := &handlers.SecretHandler{
-        DB: postgres,
-    }
-
+		DB: postgres,
+	}
 
 	fmt.Println("Starting Secrets Server--------------------------------------")
 	router := http.NewServeMux()
@@ -75,11 +72,10 @@ func main() {
 	router.HandleFunc("GET /v1/secrets/{secret_id}", http.HandlerFunc(secretHandler.HandleGetSecretById))
 	router.HandleFunc("GET /v1/secrets", http.HandlerFunc(secretHandler.HandleListSecrets))
 	router.HandleFunc("DELETE /v1/secrets/{secret_id}", http.HandlerFunc(secretHandler.HandleDeleteSecretById))
-	
+
 	if err := server.ListenAndServe(); err != http.ErrServerClosed {
-        fmt.Println("Failed to listen and serve:", err)
-        os.Exit(1)
-    }
+		fmt.Println("Failed to listen and serve:", err)
+		os.Exit(1)
+	}
 
 }
-

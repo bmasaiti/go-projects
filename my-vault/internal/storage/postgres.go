@@ -78,7 +78,7 @@ func (repo *PostgresSecretRepo) DeleteSecretByID(secretId string) (string, error
 		&kvDataJSON,
 	)
 	if err == sql.ErrNoRows {
-		return "", fmt.Errorf("secret with id %s not found", secretId)
+		return "", fmt.Errorf("secret with id %s not found: %w", secretId, ErrNotFound)
 	}
 	if err != nil {
 		return "", fmt.Errorf("failed to delete secret: %w", err)

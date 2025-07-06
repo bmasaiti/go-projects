@@ -71,6 +71,7 @@ func NewSecretResponseObject(s domain.Secret) GetSecretResponse {
 }
 
 func NewCreateSecret(s CreateSecretRequest) (domain.Secret, error) {
+
 	uuid, err := GenerateUUID()
 	if err != nil {
 		return domain.Secret{}, err
@@ -85,6 +86,7 @@ func NewCreateSecret(s CreateSecretRequest) (domain.Secret, error) {
 }
 
 func BuildListSecretsResponse(s []domain.Secret) ListSecretsResponse {
+
 	return ListSecretsResponse{
 		Message: "Secrets fetched successfully",
 		Secrets: s,

@@ -13,7 +13,7 @@ type DatabaseConfig struct {
 	Password string
 	DBName   string
 	SSLMode  string
-	}
+}
 
 func NewPostgressDBConnection(connStr string) (*sql.DB, error) {
 	db, err := sql.Open("postgres", connStr)
@@ -21,7 +21,7 @@ func NewPostgressDBConnection(connStr string) (*sql.DB, error) {
 		return nil, fmt.Errorf("failed to open database: %w", err)
 	}
 	if err = db.Ping(); err != nil {
-		db.Close() 
+		db.Close()
 		return nil, fmt.Errorf("failed to connect to the database: %w", err)
 	}
 
@@ -47,8 +47,3 @@ func CreateTables(db *sql.DB) error {
 	log.Println("Database tables created successfully")
 	return nil
 }
-
-
-
-
-
