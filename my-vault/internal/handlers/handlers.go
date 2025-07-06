@@ -144,6 +144,7 @@ func (h *SecretHandler) HandlePostSecret(w http.ResponseWriter, r *http.Request)
 }
 
 func (h *SecretHandler) HandleGetSecretById(w http.ResponseWriter, r *http.Request) {
+
 	//curl  -X POST -H "Content-Type: application/json" http://localhost:9000/secrets/234
 	secretID := r.PathValue("secret_id")
 	secretEntry, err := h.DB.GetScretsById(secretID)
@@ -165,7 +166,6 @@ func (h *SecretHandler) HandleGetSecretById(w http.ResponseWriter, r *http.Reque
 }
 
 func (h *SecretHandler) HandleDeleteSecretById(w http.ResponseWriter, r *http.Request) {
-	//curl  -X POST -H "Content-Type: application/json" http://localhost:9000/secrets/234
 	secretId := r.PathValue("secret_id")
 	if len(secretId) == 0 {
 		http.Error(w, "empty secret ID", http.StatusBadRequest)
