@@ -1,12 +1,15 @@
 package main
 
 import (
+	"cmp"
 	"fmt"
+	"log"
 	"net/http"
 	"os"
 
 	"github.com/bmasaiti/go-projects/my-vault/internal/handlers"
 	"github.com/bmasaiti/go-projects/my-vault/internal/storage"
+	_ "github.com/lib/pq"
 )
 
 // Create a HTTP server that allows you to create, delete, read and list “secrets”.
@@ -31,14 +34,32 @@ import (
 //TODO: Proper error handling.
 //TODO: encrypting secret object.
 
-func main() {
-	
+func getEnv(key, defaultValue string) string {
+	return cmp.Or(os.Getenv(key), defaultValue)
+}
 
-	
-	repo := storage.NewInMemorySecretRepo()
-    secretHandler := &handlers.SecretHandler{
-        DB: repo,
-    }
+func main() {
+
+	connStr := fmt.Sprintf("host=%s port=%s user=%s password=%s dbname=%s sslmode=%s",
+		getEnv("DB_HOST", "localhost"),
+		getEnv("DB_PORT", "5432"),
+		getEnv("DB_USER", "admin"),
+		getEnv("DB_PASSWORD", "adminYourPass"),
+		getEnv("DB_NAME", "secrets_db"),
+		getEnv("DB_SSLMODE", "disable"),
+	)
+	db, err := storage.NewPostgressDBConnection(connStr)
+	if err != nil {
+		log.Fatalf("Could not connect to the database: %v", err)
+	}
+	defer db.Close()
+	log.Println("Successfully connected to the database!")
+
+	postgres := storage.NewPostgresSecretRepo(db)
+
+	secretHandler := &handlers.SecretHandler{
+		DB: postgres,
+	}
 
 	fmt.Println("Starting Secrets Server--------------------------------------")
 	router := http.NewServeMux()
@@ -47,24 +68,14 @@ func main() {
 		Handler: router,
 	}
 
+	router.HandleFunc("POST /v1/secrets", http.HandlerFunc(secretHandler.HandlePostSecret))
+	router.HandleFunc("GET /v1/secrets/{secret_id}", http.HandlerFunc(secretHandler.HandleGetSecretById))
+	router.HandleFunc("GET /v1/secrets", http.HandlerFunc(secretHandler.HandleListSecrets))
+	router.HandleFunc("DELETE /v1/secrets/{secret_id}", http.HandlerFunc(secretHandler.HandleDeleteSecretById))
 
-	router.HandleFunc("POST /v1/secrets", func(w http.ResponseWriter, r *http.Request){
-		secretHandler.HandlePostSecret(w, r)
-	})
-	router.HandleFunc("GET /v1/secrets/{secret_id}", func(w http.ResponseWriter, r *http.Request){
-		secretHandler.HandleGetSecretById(w, r)
-	})
-	router.HandleFunc("GET /v1/secrets", func(w http.ResponseWriter, r *http.Request){
-		secretHandler.HandleListSecrets(w, r)
-	})
-	router.HandleFunc("DELETE /v1/secrets/{secret_id}", func(w http.ResponseWriter, r *http.Request){
-		secretHandler.HandleDeleteSecretById(w, r)
-	})
-	
 	if err := server.ListenAndServe(); err != http.ErrServerClosed {
-        fmt.Println("Failed to listen and serve:", err)
-        os.Exit(1)
-    }
+		fmt.Println("Failed to listen and serve:", err)
+		os.Exit(1)
+	}
 
 }
-
