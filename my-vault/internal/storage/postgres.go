@@ -50,7 +50,7 @@ func (repo *PostgresSecretRepo) GetScretsById(secretId string) (domain.Secret, e
 		&kvDataJSON,
 	)
 	if err == sql.ErrNoRows {
-		return domain.Secret{}, fmt.Errorf("secret with id %s not found", secretId)
+		return domain.Secret{}, fmt.Errorf("secret with id %s not found: %w", secretId, ErrNotFound)
 	}
 	if err != nil {
 		return domain.Secret{}, fmt.Errorf("failed to query secret: %w", err)
