@@ -169,11 +169,11 @@ func (h *SecretHandler) HandleDeleteSecretById(w http.ResponseWriter, r *http.Re
 		http.Error(w, "empty secret ID", http.StatusBadRequest)
 	}
 	secret, err := h.DB.DeleteSecretByID(secretId)
-	if err == storage.ErrNotFound {
-		http.Error(w, fmt.Sprintf("Secret with ID %s not found", secret), http.StatusNotFound)
-		return
-	}
 	if err != nil {
+		if errors.Is(err, storage.ErrNotFound) {
+			http.Error(w, fmt.Sprintf("Secret with ID %s not found", secret), http.StatusNotFound)
+			return
+		}
 		http.Error(w, "Unexpected internal error", http.StatusInternalServerError)
 		logger.Error("Failed to delete secret", "error", err, "secret_id", secretId)
 		return
