@@ -1,14 +1,15 @@
 package main
 
 import (
-	
+	"cmp"
 	"fmt"
 	"log"
 	"net/http"
 	"os"
-	 _ "github.com/lib/pq"
+
 	"github.com/bmasaiti/go-projects/my-vault/internal/handlers"
 	"github.com/bmasaiti/go-projects/my-vault/internal/storage"
+	_ "github.com/lib/pq"
 )
 
 // Create a HTTP server that allows you to create, delete, read and list “secrets”.
@@ -52,13 +53,8 @@ func main() {
 	if err != nil {
 		log.Fatalf("Could not connect to the database: %v", err)
 	}
-	
 	defer db.Close()
 	log.Println("Successfully connected to the database!")
-
-	if err := storage.CreateTables(db); err != nil {
-		log.Fatalf("Could not create tables: %v", err)
-	}
 
 
 	postgres:= storage.NewPostgresSecretRepo(db)
@@ -75,10 +71,10 @@ func main() {
 		Handler: router,
 	}
 
-	router.HandleFunc("POST /v1/secrets", func(w http.ResponseWriter, r *http.Request){secretHandler.HandlePostSecret(w, r)})
-	router.HandleFunc("GET /v1/secrets/{secret_id}", func(w http.ResponseWriter, r *http.Request){secretHandler.HandleGetSecretById(w, r)})
-	router.HandleFunc("GET /v1/secrets", func(w http.ResponseWriter, r *http.Request){secretHandler.HandleListSecrets(w, r)})
-	router.HandleFunc("DELETE /v1/secrets/{secret_id}", func(w http.ResponseWriter, r *http.Request){secretHandler.HandleDeleteSecretById(w, r)})
+	router.HandleFunc("POST /v1/secrets", http.HandlerFunc(secretHandler.HandlePostSecret))
+	router.HandleFunc("GET /v1/secrets/{secret_id}", http.HandlerFunc(secretHandler.HandleGetSecretById))
+	router.HandleFunc("GET /v1/secrets", http.HandlerFunc(secretHandler.HandleListSecrets))
+	router.HandleFunc("DELETE /v1/secrets/{secret_id}", http.HandlerFunc(secretHandler.HandleDeleteSecretById))
 	
 	if err := server.ListenAndServe(); err != http.ErrServerClosed {
         fmt.Println("Failed to listen and serve:", err)

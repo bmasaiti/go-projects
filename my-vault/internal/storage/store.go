@@ -4,7 +4,6 @@ import (
 	"database/sql"
 	"fmt"
 	"log"
-	"os"
 )
 
 type DatabaseConfig struct {
@@ -26,16 +25,12 @@ func NewPostgressDBConnection(connStr string) (*sql.DB, error) {
 		return nil, fmt.Errorf("failed to connect to the database: %w", err)
 	}
 
-	return db, nil
-}
-
-func getEnv(key, defaultValue string) string {
-		if value := os.Getenv(key); value != "" {
-			return value
-		}
-		return defaultValue
+	if err := CreateTables(db); err != nil {
+		log.Fatalf("Could not create tables: %v", err)
 	}
 
+	return db, nil
+}
 
 func CreateTables(db *sql.DB) error {
 
@@ -52,5 +47,8 @@ func CreateTables(db *sql.DB) error {
 	log.Println("Database tables created successfully")
 	return nil
 }
+
+
+
 
 
