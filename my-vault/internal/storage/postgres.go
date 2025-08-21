@@ -8,6 +8,22 @@ import (
 	"github.com/bmasaiti/go-projects/my-vault/internal/domain"
 )
 
+
+func NewPostgressDBConnection(connStr string) (*sql.DB, error) {
+	db, err := sql.Open("postgres", connStr)
+	if err != nil {
+		return nil, fmt.Errorf("failed to open database: %w", err)
+	}
+	if err = db.Ping(); err != nil {
+		db.Close()
+		return nil, fmt.Errorf("failed to connect to the database: %w", err)
+	}
+
+	return db, nil
+}
+
+
+
 type PostgresSecretRepo struct {
 	DB *sql.DB
 }
@@ -15,6 +31,20 @@ type PostgresSecretRepo struct {
 func NewPostgresSecretRepo(db *sql.DB) *PostgresSecretRepo {
 	return &PostgresSecretRepo{DB: db}
 }
+
+func NewStore(connStr string) (*PostgresSecretRepo, error) {
+   
+    db, err := NewPostgressDBConnection(connStr)
+    if err != nil {
+        return nil, err
+    }
+    repo := NewPostgresSecretRepo(db)
+	
+	defer db.Close()
+    return repo, nil
+}
+
+
 
 func (repo *PostgresSecretRepo) PutNewSecret(secret domain.Secret) error {
 	query := `

@@ -48,14 +48,11 @@ func main() {
 		getEnv("DB_NAME", "secrets_db"),
 		getEnv("DB_SSLMODE", "disable"),
 	)
-	db, err := storage.NewPostgressDBConnection(connStr)
+
+	postgres,err := storage.NewStore(connStr)
 	if err != nil {
 		log.Fatalf("Could not connect to the database: %v", err)
 	}
-	defer db.Close()
-	log.Println("Successfully connected to the database!")
-
-	postgres := storage.NewPostgresSecretRepo(db)
 
 	secretHandler := &handlers.SecretHandler{
 		DB: postgres,
