@@ -65,7 +65,7 @@ func (repo *InMemorySecretRepo)ListAllSecrets() ([]domain.Secret,error){
 	}
 	repo.mu.Lock()
 	defer repo.mu.Unlock()
-	secrets := []domain.Secret[]
+	secrets := []domain.Secret{}
 	for _, v := range repo.secrets {
 		secrets = append(secrets, v)
 	}
